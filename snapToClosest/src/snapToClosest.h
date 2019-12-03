@@ -11,26 +11,20 @@
 // ----------------------------------------------------------------------------
 //
 
-
 #ifndef __snapCmd__snapToClosest__
 #define __snapCmd__snapToClosest__
 
-
-#include <maya/MObject.h>
-#include <maya/MString.h>
-#include <maya/MPxCommand.h>
 #include <maya/MDagPath.h>
 #include <maya/MFnMesh.h>
-#include <maya/MSelectionList.h>
-#include <maya/MSyntax.h>
+#include <maya/MObject.h>
 #include <maya/MPointArray.h>
+#include <maya/MPxCommand.h>
+#include <maya/MSelectionList.h>
+#include <maya/MString.h>
+#include <maya/MSyntax.h>
+#include <maya/MVector.h>
 
-
-using namespace std;
-
-
-class SnapToClosest : public MPxCommand
-{
+class SnapToClosest : public MPxCommand {
 public:
     SnapToClosest();
     virtual ~SnapToClosest();
@@ -42,18 +36,27 @@ public:
     static MSyntax newSyntax();
 
 private:
-    MDagPath            mDagPath_components;
-    MDagPath            mDagPath_target;
-    MObject             components;
-    MFnMesh             fnMeshComponents;
-    MFnMesh             fnMeshTarget;
-    MPointArray         vertexArray;
-    MPointArray         newVertexArray;  
-    MSelectionList      mList;             
-    MString             targetObjectName;         
-    bool                dummyBool;
-    double              searchDistance;
-    MString             mode;
+    MStatus snapToClosestNormal(MDagPath& sourceDagPath, MObject& components, MDagPath& targetDagPath);
+    MStatus snapToClosestSurface(MDagPath& sourceDagPath, MObject& components, MDagPath& targetDagPath);
+    MStatus snapToClosestVertex(MDagPath& sourceDagPath, MObject& components, MDagPath& targetDagPath);
+
+    MFnMesh fnMeshComponents;
+
+    MPointArray oldPositions;
+    MPointArray newPositions;
+
+    MSelectionList mList;
+    MString targetObjectName;
+    bool dummyBool;
+    double searchRadius;
+    MString mode;
+
+    bool useCustomVector;
+    MVector customVector;
+    double customVectorX;
+    double customVectorY;
+    double customVectorZ;
+    bool testBothDirections;
 };
 
 #endif /* defined(__snapCmd__snapToClosest__) */

@@ -12,24 +12,38 @@ def getMayaWindow():
     return shiboken.wrapInstance(long(ptr), QtWidgets.QMainWindow)
 
 
-class SnapWindow(QtWidgets.QWidget):
+class SnapWindow(QtWidgets.QDialog):
+
+    def closeExistingWindow(self):
+        """ Close window if exists """
+
+        for qt in QtWidgets.QApplication.topLevelWidgets():
+            try:
+                if qt.__class__.__name__ == self.__class__.__name__:
+                    qt.close()
+            except Exception:
+                pass
 
     def __init__(self, parent=getMayaWindow()):
+        self.closeExistingWindow()
+
+        print parent
         super(SnapWindow, self).__init__(parent)
 
         self.setWindowTitle("Snap")
-        self.setWindowFlags(QtCore.Qt.Tool)
+        self.setWindowFlags(QtCore.Qt.Window)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
+        self.setFixedWidth(600)
 
         self.createUI()
         self.layoutUI()
 
     def createUI(self):
         self.lineEdit = QtWidgets.QLineEdit()
+        self.lineEdit.setEnabled(False)
         self.setButton = QtWidgets.QPushButton("Set")
         self.setButton.clicked.connect(self.setter)
-
-        self.lockCheckBox = QtWidgets.QCheckBox("Lock")
-        self.lockCheckBox.stateChanged.connect(self.lock)
 
         self.modeRadioGrp = QtWidgets.QButtonGroup()
         self.vertexMode = QtWidgets.QRadioButton('Vertex')
@@ -48,6 +62,17 @@ class SnapWindow(QtWidgets.QWidget):
         self.distanceLock = QtWidgets.QCheckBox("Lock")
         self.distanceLock.stateChanged.connect(self.lockDistance)
 
+        self.customVectorCheck = QtWidgets.QCheckBox("Use custom vector")
+        self.customVectorCheck.stateChanged.connect(
+            self.changeCustomVectorState)
+        self.customVectorX = QtWidgets.QLineEdit("0")
+        self.customVectorY = QtWidgets.QLineEdit("0")
+        self.customVectorZ = QtWidgets.QLineEdit("0")
+        self.customVectorX.setEnabled(False)
+        self.customVectorY.setEnabled(False)
+        self.customVectorZ.setEnabled(False)
+        self.tbdCheckBox = QtWidgets.QCheckBox("Test both directions")
+
         self.snapButton = QtWidgets.QPushButton("Snap")
         self.snapButton.setFixedHeight(40)
         self.snapButton.clicked.connect(self.snap)
@@ -57,7 +82,6 @@ class SnapWindow(QtWidgets.QWidget):
         topLayout.addWidget(QtWidgets.QLabel("Snap Target : "))
         topLayout.addWidget(self.lineEdit)
         topLayout.addWidget(self.setButton)
-        topLayout.addWidget(self.lockCheckBox)
 
         modeLayout = QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.LeftToRight)
         modeLayout.addWidget(QtWidgets.QLabel("Snap Mode : "))
@@ -66,23 +90,35 @@ class SnapWindow(QtWidgets.QWidget):
         modeLayout.addWidget(self.surfaceMode)
 
         distLayout = QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.LeftToRight)
-        distLayout.addWidget(QtWidgets.QLabel("Snap Max Distance : "))
+        distLayout.addWidget(QtWidgets.QLabel("Max Search Radius : "))
         distLayout.addWidget(self.distanceLE)
         distLayout.addWidget(self.distanceLock)
+
+        cvLayout = QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.LeftToRight)
+        cvLayout.addWidget(self.customVectorCheck)
+        cvLayout.addWidget(self.customVectorX)
+        cvLayout.addWidget(self.customVectorY)
+        cvLayout.addWidget(self.customVectorZ)
+        cvLayout.addWidget(self.tbdCheckBox)
 
         mainLayout = QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.TopToBottom)
         mainLayout.addLayout(topLayout)
         mainLayout.addLayout(modeLayout)
         mainLayout.addLayout(distLayout)
+        mainLayout.addLayout(cvLayout)
         mainLayout.addWidget(self.snapButton)
 
         self.setLayout(mainLayout)
 
-    def lock(self):
-        if self.lockCheckBox.checkState() == QtCore.Qt.CheckState.Checked:
-            self.lineEdit.setEnabled(False)
+    def changeCustomVectorState(self):
+        if self.customVectorCheck.checkState() == QtCore.Qt.CheckState.Checked:
+            self.customVectorX.setEnabled(True)
+            self.customVectorY.setEnabled(True)
+            self.customVectorZ.setEnabled(True)
         else:
-            self.lineEdit.setEnabled(True)
+            self.customVectorX.setEnabled(False)
+            self.customVectorY.setEnabled(False)
+            self.customVectorZ.setEnabled(False)
 
     def lockDistance(self):
         if self.distanceLock.checkState() == QtCore.Qt.CheckState.Checked:
@@ -103,16 +139,33 @@ class SnapWindow(QtWidgets.QWidget):
         else:
             snapMode = "surface"
 
-        try:
-            maxDist = int(self.distanceLE.text())
-        except:
-            print "not int!!!!"
-            return
+        # directions
+        if self.tbdCheckBox.checkState() == QtCore.Qt.CheckState.Checked:
+            testBothDirections = True
+        else:
+            testBothDirections = False
 
-        cmds.snapToClosest(
-            target,
-            mode=snapMode,
-            d=maxDist)
+        maxSearchRadius = float(self.distanceLE.text())
+
+        if self.customVectorCheck.checkState() == QtCore.Qt.CheckState.Checked:
+            nx = float(self.customVectorX.text())
+            ny = float(self.customVectorY.text())
+            nz = float(self.customVectorZ.text())
+            cmds.snapToClosest(
+                target,
+                mode=snapMode,
+                r=maxSearchRadius,
+                cv=True,
+                cvx=nx,
+                cvy=ny,
+                cvz=nz,
+                tbd=testBothDirections)
+        else:
+            cmds.snapToClosest(
+                target,
+                mode=snapMode,
+                r=maxSearchRadius,
+                tbd=testBothDirections)
 
     def setter(self):
         self.lineEdit.setText(cmds.ls(sl=True, fl=True, long=True)[0])
